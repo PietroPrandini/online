@@ -11,19 +11,22 @@
 
 #include "FileServer.hpp"
 
-std::string FileServerRequestHandler::uiDefaultsToJSON(const std::string& uiDefaults)
+std::pair<std::string&, std::map<std::string, std::string>&> FileServerRequestHandler::processUIDefaults(const std::string& uiDefaults)
 {
     static std::string previousUIDefaults;
     static std::string previousJSON("{}");
+    static std::map<std::string, std::string> mapUIDefaults;
 
     // early exit if we are serving the same thing
     if (uiDefaults == previousUIDefaults)
-        return previousJSON;
+        return std::pair<std::string&, std::map<std::string, std::string>&>(previousJSON, mapUIDefaults);
 
     Poco::JSON::Object json;
     Poco::JSON::Object textDefs;
     Poco::JSON::Object spreadsheetDefs;
     Poco::JSON::Object presentationDefs;
+
+    mapUIDefaults.clear();
 
     StringVector tokens(Util::tokenize(uiDefaults, ';'));
     for (const auto& token : tokens)
@@ -36,7 +39,10 @@ std::string FileServerRequestHandler::uiDefaultsToJSON(const std::string& uiDefa
         if (keyValue[0] == "UIMode")
         {
             if (keyValue[1] == "classic" || keyValue[1] == "notebookbar")
+            {
                 json.set("uiMode", keyValue[1]);
+                mapUIDefaults[keyValue[0]] = keyValue[1];
+            }
             else
                 LOG_WRN("unknown UIMode value " << keyValue[1]);
 
@@ -79,6 +85,8 @@ std::string FileServerRequestHandler::uiDefaultsToJSON(const std::string& uiDefa
             LOG_WRN("unknown UI default " << keyValue[0]);
             continue;
         }
+
+        mapUIDefaults[keyValue[0]] = keyValue[1];
     }
 
     if (textDefs.size() > 0)
@@ -96,7 +104,7 @@ std::string FileServerRequestHandler::uiDefaultsToJSON(const std::string& uiDefa
     previousUIDefaults = uiDefaults;
     previousJSON = oss.str();
 
-    return previousJSON;
+    return std::pair<std::string&, std::map<std::string, std::string>&>(previousJSON, mapUIDefaults);
 }
 
 std::string FileServerRequestHandler::cssVarsToStyle(const std::string& cssVars)

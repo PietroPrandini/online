@@ -674,6 +674,8 @@ void FileServerRequestHandler::preprocessFile(const HTTPRequest& request,
     const std::string cssVars = form.get("css_variables", "");
     LOG_TRC("css_variables=" << cssVars);
 
+    const auto uiDefaultsData = processUIDefaults(uiDefaults);
+
     // Escape bad characters in access token.
     // This is placed directly in javascript in loleaflet.html, we need to make sure
     // that no one can do anything nasty with their clever inputs.
@@ -714,7 +716,7 @@ void FileServerRequestHandler::preprocessFile(const HTTPRequest& request,
     Poco::replaceInPlace(preprocess, std::string("%HOST%"), cnxDetails.getWebSocketUrl());
     Poco::replaceInPlace(preprocess, std::string("%VERSION%"), std::string(LOOLWSD_VERSION_HASH));
     Poco::replaceInPlace(preprocess, std::string("%SERVICE_ROOT%"), responseRoot);
-    Poco::replaceInPlace(preprocess, std::string("%UI_DEFAULTS%"), uiDefaultsToJSON(uiDefaults));
+    Poco::replaceInPlace(preprocess, std::string("%UI_DEFAULTS%"), uiDefaultsData.first);
 
     const auto& config = Application::instance().config();
     std::string protocolDebug = "false";
@@ -769,7 +771,12 @@ void FileServerRequestHandler::preprocessFile(const HTTPRequest& request,
         enableWelcomeMessageButton = "true";
     Poco::replaceInPlace(preprocess, std::string("%ENABLE_WELCOME_MSG_BTN%"), enableWelcomeMessageButton);
 
-    std::string userInterfaceMode = config.getString("user_interface.mode", "classic");
+    std::string userInterfaceMode;
+    const auto itUIMode = uiDefaultsData.second.find("UIMode");
+    if (itUIMode != uiDefaultsData.second.end())
+        userInterfaceMode = itUIMode->second;
+    else
+        userInterfaceMode = config.getString("user_interface.mode", "classic");
     Poco::replaceInPlace(preprocess, std::string("%USER_INTERFACE_MODE%"), userInterfaceMode);
 
     // Capture cookies so we can optionally reuse them for the storage requests.
